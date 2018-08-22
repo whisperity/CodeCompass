@@ -66,7 +66,7 @@ Procedure Call (RPC) between the server and the client. Thrift is not part of
 the official Ubuntu 16.04 LTS repositories, but you can download it and build
 from source:
 
-- [Download Thrift](http://xenia.sote.hu/ftp/mirrors/www.apache.org/thrift/0.10.0/thrift-0.10.0.tar.gz)
+- [Download Thrift](https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=thrift/0.10.0/thrift-0.10.0.tar.gz)
 - Uncompress and build it:
 
 ```bash
@@ -103,9 +103,9 @@ webpage but another issue is that the prebuilt packages don't use runtime type
 informations (RTTI) which is needed for CodeCompass. Clang needs to be compiled
 with RTTI manually.
 
-Additionally, LLVM 7.0 has not yet been made into a full release, it is only
-available as the current in-development version. However, certain CodeCompass
-features depend on these features.
+Additionally, LLVM 7 has not yet been made into a full release, it is only
+available as a tagged pre-release. However, certain CodeCompass features
+depend on LLVM 7 to be used.
 
 ```bash
 sudo apt-get install unzip
@@ -113,12 +113,12 @@ sudo apt-get install unzip
 # If you want Clang's diagnostic output to have colours, install the following.
 sudo apt-get install libtinfo-dev
 
-wget https://github.com/llvm-mirror/llvm/archive/d79c539c3b03f5e05ff3a528a8e4d9bfce121d69.zip -O llvm.zip
+wget http://github.com/llvm-mirror/llvm/archive/release_70.zip -O llvm.zip
 unzip llvm.zip
 rm llvm.zip
 mv llvm-* llvm
 cd llvm/tools
-wget https://github.com/llvm-mirror/clang/archive/e2fbe37780ca1bad55fbdb18a8c448d7156a932d.zip -O clang.zip
+wget http://github.com/llvm-mirror/clang/archive/release_70.zip -O clang.zip
 unzip clang.zip
 rm clang.zip
 mv clang-* clang
