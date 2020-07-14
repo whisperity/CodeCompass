@@ -42,9 +42,6 @@ services:
     - libgtest-dev
     # Thrift
     - libssl-dev
-    # Thrift (compile)
-    - byacc
-    - flex
 
 .apt_xenial_pgsql: &apt_xenial_pgsql
   <<: *apt_xenial_config
@@ -76,9 +73,6 @@ services:
     - libgtest-dev
     # Thrift
     - libssl-dev
-    # Thrift (compile)
-    - byacc
-    - flex
 
 .apt_bionic_config: &apt_bionic_config
   update: true
@@ -95,8 +89,6 @@ services:
     - libclang-7-dev
     # Java
     - default-jdk
-    # ODB
-    - gcc-7-plugin-dev
     # SQLite
     - libsqlite3-dev
     # Parser
@@ -110,9 +102,6 @@ services:
     - libgtest-dev
     # Thrift
     - libssl1.0-dev
-    # Thrift (compile)
-    - byacc
-    - flex
 
 .apt_bionic_pgsql: &apt_bionic_pgsql
   <<: *apt_bionic_config
@@ -126,8 +115,6 @@ services:
     - libclang-7-dev
     # Java
     - default-jdk
-    # ODB
-    - gcc-7-plugin-dev
     # PostgreSQL
     - postgresql-server-dev-10
     # Parser
@@ -141,9 +128,6 @@ services:
     - libgtest-dev
     # Thrift
     - libssl1.0-dev
-    # Thrift (compile)
-    - byacc
-    - flex
 
 .apt_focal_config: &apt_focal_config
   update: true
@@ -217,100 +201,82 @@ services:
 
 # ------------------------ Self-compiled dependencies ------------------------
 
-.install_thrift: &install_thrift
+# Dummy script that helps us fetch a binary release from a GitHub repository.
+.write_download_script: &write_download_script
   |
-  if [ ! -f "$HOME/thrift_install/bin/thrift" ]; then
-    echo "Building Thrift..."
-    cd $HOME
-    wget -O thrift-0.13.0.tar.gz "http://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=thrift/0.13.0/thrift-0.13.0.tar.gz"
-    tar -xvf ./thrift-0.13.0.tar.gz
-    cd thrift-0.13.0
-    ./configure --prefix=$HOME/thrift_install --without-python         \
-      --enable-libtool-lock --enable-tutorial=no --enable-tests=no     \
-      --with-libevent --with-zlib --without-nodejs --without-lua       \
-      --without-ruby --without-csharp --without-erlang --without-perl  \
-      --without-php --without-php_extension --without-dart             \
-      --without-haskell --without-go --without-rs --without-haxe       \
-      --without-dotnetcore --without-d --without-qt4 --without-qt5     \
-      --without-java
-    make install -j $(nproc)
+  if [[ "${TRAVIS_DIST}" == "xenial" ]]; then
+    IMAGE="ub1604"
+  elif [[ "${TRAVIS_DIST}" == "bionic" ]]; then
+    IMAGE="ub1804"
+  elif [[ "${TRAVIS_DIST}" == "focal" ]]; then
+    IMAGE="ub2004"
   fi
 
-.install_odb: &install_odb
-  |
-  if [ ! -f "$HOME/build2_install/bin/bpkg" ]; then
-    echo "Building Build2..."
-    mkdir /tmp/build2src
-    cd /tmp/build2src
-    curl -sSfO https://download.build2.org/0.12.0/build2-install-0.12.0.sh
-    sh build2-install-0.12.0.sh --yes --trust yes "$HOME/build2_install/"
-  fi
-  export PATH=$PATH:$HOME/build2_install/bin/
-  if [ ! -f "$HOME/odb_install/bin/odb" ]; then
-    mkdir /tmp/odb_build
-    cd /tmp/odb_build
-    bpkg create --quiet --jobs $(nproc) cc \
-      config.cxx=g++ config.cc.coptions=-O3 \
-      config.bin.rpath="$HOME/odb_install/lib" config.install.root="$HOME/odb_install" \
-      config.install.sudo=sudo
-    bpkg add https://pkg.cppget.org/1/beta --trust-yes
-    bpkg fetch --trust-yes
-    echo "Building ODB..."
-    bpkg build odb --yes
-    bpkg build libodb --yes
-    [ "$DATABASE" == "sqlite" ] && (echo "Building ODB/SQLite..."; bpkg build libodb-sqlite --yes) || echo "Skip building ODB/SQLite!"
-    [ "$DATABASE" == "pgsql" ] && (echo "Building ODB/PostgreSQL..."; bpkg build libodb-pgsql --yes) || echo "Skip building ODB/PostgreSQL!"
-    bpkg install --all --recursive
-  fi
+  echo "Prepare GitHub release pull script for ${TRAVIS_DIST}: '${IMAGE}'"
 
+  echo "IMAGE=${IMAGE}" >"dep.sh"
+  echo 'pushd ${HOME}' >>"dep.sh"
+  echo 'echo "Downloading $1..."' >>"dep.sh"
+  echo 'curl -sL http://api.github.com/repos/whisperity/CodeCompass-Dependencies/releases/latest \' >>"dep.sh"
+  echo ' | grep "${IMAGE}_$1-" \' >>"dep.sh"
+  echo ' | grep "\-install.tar.gz" \' >>"dep.sh"
+  echo ' | grep "browser_download_url" \' >>"dep.sh"
+  echo ' | cut -d ":" -f 2,3 \' >>"dep.sh"
+  echo " | sed -E 's/^ \"(.*)\",?$/\1/' \\" >>"dep.sh"
+  echo ' | wget -O "$1.tar.gz" -i -' >>"dep.sh"
+  echo 'tar xvfz "./$1.tar.gz"' >>"dep.sh"
+  echo 'rm "./$1.tar.gz"' >>"dep.sh"
+  echo 'popd' >>"dep.sh"
+
+  cat "dep.sh"
+  mv -v "dep.sh" "${HOME}/get-dependency.sh"
+  chmod +x "${HOME}/get-dependency.sh"
+        
 .install_gtest_xenial: &install_gtest_xenial
   |
-  if [ ! -f "$HOME/gtest_install/lib/libgtest.a" ]; then
+  if [ ! -f "$HOME/gtest-install/lib/libgtest.a" ]; then
     echo "Building GoogleTest..."
     cd $HOME
     mkdir gtest
     cp -R /usr/src/gtest/* ./gtest
     cd gtest
     mkdir build && cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/gtest_install
+    cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/gtest-install
     make -j $(nproc)
 
-    mkdir -p $HOME/gtest_install/lib
-    cp libgtest.a libgtest_main.a $HOME/gtest_install/lib/
+    mkdir -p $HOME/gtest-install/lib
+    cp libgtest.a libgtest_main.a $HOME/gtest-install/lib/
   fi
 
 .install_gtest_bionic: &install_gtest_bionic
   |
-  if [ ! -f "$HOME/gtest_install/lib/libgtest.a" ]; then
+  if [ ! -f "$HOME/gtest-install/lib/libgtest.a" ]; then
     echo "Building GoogleTest..."
     cd $HOME
     mkdir gtest
     cp -R /usr/src/googletest/* ./gtest
     cd gtest
     mkdir build && cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/gtest_install
+    cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/gtest-install
     make install -j $(nproc)
   fi
 
 .install_gtest_focal: &install_gtest_focal
   |
-  if [ ! -f "$HOME/gtest_install/lib/libgtest.a" ]; then
+  if [ ! -f "$HOME/gtest-install/lib/libgtest.a" ]; then
     echo "Building GoogleTest..."
     cd $HOME
     mkdir gtest
     cp -R /usr/src/googletest/* ./gtest
     cd gtest
     mkdir build && cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/gtest_install
+    cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/gtest-install
     make install -j $(nproc)
   fi
 
 cache:
   directories:
-    - $HOME/build2_install
-    - $HOME/gtest_install
-    - $HOME/odb_install
-    - $HOME/thrift_install
+    - $HOME/gtest-install
 
 # ---------------------------------- Setup -----------------------------------
 
@@ -326,17 +292,17 @@ before_script:
   - /usr/bin/clang-7 --version
   - /usr/bin/llvm-config-7 --version --has-rtti
   # ODB
-  - export CMAKE_PREFIX_PATH=$HOME/odb_install:$CMAKE_PREFIX_PATH
-  - export PATH=$HOME/odb_install/bin:$PATH
+  - export CMAKE_PREFIX_PATH=$HOME/odb-install:$CMAKE_PREFIX_PATH
+  - export PATH=$HOME/odb-install/bin:$PATH
   - which odb
   - odb --version
   # Thrift
-  - export CMAKE_PREFIX_PATH=$HOME/thrift_install:$CMAKE_PREFIX_PATH
-  - export PATH=$HOME/thrift_install/bin:$PATH
+  - export CMAKE_PREFIX_PATH=$HOME/thrift-install:$CMAKE_PREFIX_PATH
+  - export PATH=$HOME/thrift-install/bin:$PATH
   - which thrift
   - thrift --version
   # GTest
-  - export GTEST_ROOT=$HOME/gtest_install
+  - export GTEST_ROOT=$HOME/gtest-install
 
 .fix_focal_travis_postgresql_server: &fix_focal_travis_postgresql_server
   # Newer PostgreSQL servers on Travis don't automatically allow connecting
@@ -389,8 +355,10 @@ jobs:
         postgresql: "9.5"
       env:
         - DATABASE=pgsql
+      before_install:
+        - *write_download_script
       install:
-        - *install_thrift
+        - ${HOME}/get-dependency.sh thrift
         - *install_gtest_xenial
       script:
         *build_postgres
@@ -401,8 +369,10 @@ jobs:
           <<: *apt_xenial_sqlite
       env:
         - DATABASE=sqlite
+      before_install:
+        - *write_download_script
       install:
-        - *install_thrift
+        - ${HOME}/get-dependency.sh thrift
         - *install_gtest_xenial
       script:
         *build_sqlite
@@ -414,9 +384,11 @@ jobs:
         postgresql: "10"
       env:
         - DATABASE=pgsql
+      before_install:
+        - *write_download_script
       install:
-        - *install_odb
-        - *install_thrift
+        - ${HOME}/get-dependency.sh odb-$DATABASE
+        - ${HOME}/get-dependency.sh thrift
         - *install_gtest_bionic
       script:
         *build_postgres
@@ -427,9 +399,11 @@ jobs:
           <<: *apt_bionic_sqlite
       env:
         - DATABASE=sqlite
+      before_install:
+        - *write_download_script
       install:
-        - *install_odb
-        - *install_thrift
+        - ${HOME}/get-dependency.sh odb-$DATABASE
+        - ${HOME}/get-dependency.sh thrift
         - *install_gtest_bionic
       script:
         *build_sqlite
