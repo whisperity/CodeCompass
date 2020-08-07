@@ -1,19 +1,13 @@
 #include <chrono>
-
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
-
 #include <clang/Frontend/ASTUnit.h>
 #include <clang/Tooling/Tooling.h>
-
 #include <model/cppastnode.h>
 #include <model/cppastnode-odb.hxx>
-
 #include <util/logutil.h>
-
 #include <service/cppreparseservice.h>
 #include <service/reparser.h>
-
 #include "astcache.h"
 #include "asthtml.h"
 

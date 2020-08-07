@@ -6,18 +6,13 @@
 #include <map>
 #include <unordered_set>
 #include <string>
-
 #include <boost/program_options/variables_map.hpp>
-
 #include <odb/database.hxx>
-
 #include <LanguageService.h>
-
 #include <model/cppastnode.h>
 #include <model/cppastnode-odb.hxx>
 #include <model/cpprelation.h>
 #include <model/cpprelation-odb.hxx>
-
 #include <util/odbtransaction.h>
 #include <webserver/servercontext.h>
 
